@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoPath | Swarm-Inspired Eco-Routing Engine</title>
+    <!-- Google Fonts: Outfit and Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet.js CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    
+    <!-- FontAwesome Icons for modern look -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/styles.css?v=2.1">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Control Panel -->
+        <aside class="sidebar glass">
+            <header class="logo-area">
+                <div class="logo-title">
+                    <i class="fa-solid fa-seedling logo-icon"></i>
+                    <span>EcoPath</span>
+                </div>
+                <p class="subtitle">Bio-Inspired Eco-Routing Engine</p>
+                <div class="status-badge">
+                    <span class="pulsing-dot"></span>
+                    <span id="telemetry-status">Ingestion Active: Offline</span>
+                </div>
+            </header>
+
+            <section class="control-section">
+                <h3><i class="fa-solid fa-route"></i> Route Planner</h3>
+                
+                <div class="input-group">
+                    <label for="start-node"><i class="fa-solid fa-location-dot start-icon"></i> Start A</label>
+                    <select id="start-node">
+                        <option value="" disabled selected>Select start node...</option>
+                    </select>
+                    <small class="helper-text">Or click a node on the map</small>
+                </div>
+
+                <div class="input-group">
+                    <label for="dest-node"><i class="fa-solid fa-flag dest-icon"></i> Destination B</label>
+                    <select id="dest-node">
+                        <option value="" disabled selected>Select destination...</option>
+                    </select>
+                    <small class="helper-text">Or shift+click a node on the map</small>
+                </div>
+
+                <div class="input-group slider-group">
+                    <div class="slider-header">
+                        <label for="weight-alpha"><i class="fa-solid fa-clock"></i> Time Weight (α)</label>
+                        <span id="alpha-val">1.0</span>
+                    </div>
+                    <input type="range" id="weight-alpha" min="0.0" max="10.0" step="0.5" value="1.0">
+                </div>
+
+                <div class="input-group slider-group">
+                    <div class="slider-header">
+                        <label for="weight-beta"><i class="fa-solid fa-wind"></i> AQI Weight (β)</label>
+                        <span id="beta-val">1.0</span>
+                    </div>
+                    <input type="range" id="weight-beta" min="0.0" max="10.0" step="0.5" value="1.0">
+                </div>
+
+                <div class="input-group slider-group">
+                    <div class="slider-header">
+                        <label for="weight-gamma"><i class="fa-solid fa-atom"></i> Pheromone Weight (γ)</label>
+                        <span id="gamma-val">0.5</span>
+                    </div>
+                    <input type="range" id="weight-gamma" min="0.0" max="10.0" step="0.5" value="0.5">
+                </div>
+
+                <button id="btn-calculate" class="btn btn-primary">
+                    <i class="fa-solid fa-compass"></i> Calculate Route
+                </button>
+            </section>
+
+            <section class="control-section">
+                <h3><i class="fa-solid fa-atom"></i> Swarm Controls</h3>
+                
+                <div class="input-group slider-group">
+                    <div class="slider-header">
+                        <label for="decay-rate"><i class="fa-solid fa-wind"></i> Pheromone Decay Rate</label>
+                        <span id="decay-val">10%</span>
+                    </div>
+                    <input type="range" id="decay-rate" min="0.01" max="0.5" step="0.01" value="0.10">
+                </div>
+
+                <div class="button-row">
+                    <button id="btn-evaporate" class="btn btn-secondary">
+                        <i class="fa-solid fa-temperature-arrow-down"></i> Evaporate Pheromones
+                    </button>
+                    <button id="btn-refresh" class="btn btn-secondary">
+                        <i class="fa-solid fa-arrows-rotate"></i> Refresh
+                    </button>
+                </div>
+            </section>
+
+            <!-- Route Metrics Panel (Hidden initially) -->
+            <section id="metrics-panel" class="control-section metrics-card glass-panel hidden">
+                <h3><i class="fa-solid fa-chart-simple"></i> Path Analysis</h3>
+                
+                <div class="summary-badge-container">
+                    <div class="summary-badge time-badge">
+                        <i class="fa-solid fa-clock"></i> <span id="badge-commute-time">-</span> mins
+                    </div>
+                    <div class="summary-badge aqi-badge">
+                        <i class="fa-solid fa-wind"></i> <span id="badge-aqi-rating">-</span>
+                    </div>
+                </div>
+
+                <div class="metric-grid">
+                    <div class="metric-item">
+                        <span class="label">Distance</span>
+                        <span class="value" id="val-distance">-</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="label">Avg PM2.5 AQI</span>
+                        <span class="value" id="val-aqi">-</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="label">Reinforcement Points</span>
+                        <span class="value" id="val-points">-</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="label">Cleanliness Score</span>
+                        <span class="value" id="val-score">-</span>
+                    </div>
+                </div>
+                <div class="metric-comparison">
+                    <div class="comparison-bar">
+                        <div class="bar-header">
+                            <span>Inhaled PM2.5 Exposure</span>
+                            <span id="exposure-reduction" class="percentage-good">-</span>
+                        </div>
+                        <div class="bar-track">
+                            <div id="bar-exposure" class="bar-fill"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="route-tip" class="route-tip">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span id="tip-text">Route calculated and reinforced with pheromones.</span>
+                </div>
+                <button id="btn-start-nav" class="btn btn-primary" style="margin-top: 12px; font-family: var(--font-heading);">
+                    <i class="fa-solid fa-location-arrow"></i> Start Travel Simulation
+                </button>
+            </section>
+        </aside>
+
+        <!-- Map Viewport -->
+        <main class="map-wrapper">
+            <div id="map"></div>
+            
+            <!-- Floating Navigation HUD -->
+            <div id="nav-hud" class="nav-hud glass hidden">
+                <div class="hud-header">
+                    <span class="hud-pulse"></span>
+                    <span class="hud-title">LIVE GPS NAVIGATION</span>
+                    <button id="btn-stop-nav" class="hud-close"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="hud-street" id="hud-val-street">Preparing Route...</div>
+                <div class="hud-grid">
+                    <div class="hud-item">
+                        <span class="hud-label">Sim Speed</span>
+                        <span class="hud-val" id="hud-val-speed">30 km/h</span>
+                    </div>
+                    <div class="hud-item">
+                        <span class="hud-label">Local AQI</span>
+                        <span class="hud-val" id="hud-val-aqi">15</span>
+                    </div>
+                    <div class="hud-item">
+                        <span class="hud-label">Exposure</span>
+                        <span class="hud-val" id="hud-val-exposure">0.00 µg</span>
+                    </div>
+                </div>
+                <div class="hud-progress-container">
+                    <div class="hud-progress-bar" id="hud-progress-bar"></div>
+                </div>
+            </div>
+            
+            <!-- Map Overlay Legend -->
+            <div class="map-legend glass">
+                <h4>RR Nagar Network</h4>
+                <div class="legend-item">
+                    <span class="legend-color aqi-good"></span>
+                    <span>AQI Clean (&lt; 25)</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color aqi-moderate"></span>
+                    <span>AQI Moderate (25 - 60)</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color aqi-poor"></span>
+                    <span>AQI Bad (&gt; 60)</span>
+                </div>
+                <hr>
+                <div class="legend-item">
+                    <span class="legend-line pheromone-low"></span>
+                    <span>Unexplored Edges (Pheromones default)</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-line pheromone-high"></span>
+                    <span>Reinforced Clean Path (Pheromone Trails)</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-line active-route"></span>
+                    <span>Active Route Selection</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Leaflet.js Script -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Custom JavaScript -->
+    <script src="/static/app.js?v=2.1"></script>
+</body>
+</html>
